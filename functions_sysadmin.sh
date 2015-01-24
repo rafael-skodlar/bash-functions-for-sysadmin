@@ -57,6 +57,11 @@ mode=$1
 mydir=$2
 file_type=$3
 
+if [ $# -lt 2 ]; then
+    echo -e "missing or bad parameters\n"
+    return
+fi
+
 if [ ! -d $mydir ]; then
     echo -e "no such directory: $mydir\n"
     return
@@ -188,7 +193,7 @@ echo "${1}" | bc -l;
 
 myfun() {
 echo -e "\n\t* available functions:\n"
-awk -F\( '/\(\) {/{print $1}' bin/functions_*.sh
+awk -F\( '/\(\) {/{print $1}' ~/bin/functions_*.sh
 }
 
 tport() {

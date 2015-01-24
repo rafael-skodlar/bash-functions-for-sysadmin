@@ -50,14 +50,14 @@ if [ "$opt" == "-l" ]; then
 elif [ "$opt" == "-ll" ]; then
     ls -l | less
 elif [ "$opt" == "-e" ]; then
-    note=$(select_file $dir)
+    note=$(select_file -all $dir)
     vi $note
 elif [ "$opt" == "-s" ]; then
     read -p "$LINE3 search string (single word only) " string
     printf "string: '%s'" $string
     grep $string *
 elif [ "$opt" == "-v" ]; then
-    note=$(select_file $dir)
+    note=$(select_file -pre $dir notes)
     less $note
 elif [ "$opt" == "-t" ]; then
     cd ${HOME}/info
