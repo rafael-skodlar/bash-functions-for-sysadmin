@@ -4,25 +4,17 @@
 
 std_lables() {
 # Standard lables used in scripts
-# Note: parsing in some scripts using this file depends on LINE0*
-
-LINE01="====="
-LINE02="-----"
-LINE03="....."
-LINE04="+++++"
-LINE05="_____"
-LINE06="*****"
-LINE07="|||||"
-LINE08=">>>>>"
-LINE09="<<<<<"
-LINE10="^^^^^"
-
-LINE20="======================================================================"
-LINE21="===================="
-LINE22="--------------------"
-LINE23="...................."
-LINE24="++++++++++++++++++++"
-LINE25="____________________"
+# Note: parsing in some scripts using this fuction and make_line() depends on the
+# following strings listed in order of priority from top to bottom; quotes excluded
+# "====="
+# "-----"
+# "....."
+# "+++++"
+# "_____"
+# "*****"
+# "|||||"
+# ">>>>>"
+# "<<<<<"
 
 ABORT="_____ Aborting:"
 NOTE="_____ Note:"
@@ -31,8 +23,8 @@ MISSING="_____ Missing:"
 ERROR="ERROR:"
 }
 
-ask_item() {
-# return answer from user interaction
+usr_input() {
+# user input; return an answer or default
 question=$1
 if [ $# -gt 1 ]; then
     default=$2
@@ -95,38 +87,38 @@ exec 5<&-
 }
 
 parse_url() {
-    url=$1
-    pname="${url,,}"
-    # remove URL header
-    cname="${pname#http://}"
-    cname="${pname#https://}"
-    cname="${pname#ftp://}"
-    cname="${pname#scp://}"
-    cname="${pname#sftp://}"
-    # remove username and/or username:password part of hostname
-    cname="${pname#*:*@}"
-    cname="${pname#*@}"
-    # remove trailer /somedir/index.html*
-    cname=${pname%%/*}
-    cname=${pname%%:}
-    echo -e "$cname"
+url=$1
+pname="${url,,}"
+# remove URL header
+cname="${pname#http://}"
+cname="${pname#https://}"
+cname="${pname#ftp://}"
+cname="${pname#scp://}"
+cname="${pname#sftp://}"
+# remove username and/or username:password part of hostname
+cname="${pname#*:*@}"
+cname="${pname#*@}"
+# remove trailer /somedir/index.html*
+cname=${pname%%/*}
+cname=${pname%%:}
+echo -e "$cname"
 }
 
 # network functions
 mping() {
-    local t="$1"
-    local _ping="/bin/ping"
-    local c=$(parse_url "$t")
-    [ "$t" != "$c" ] && echo "Sending ICMP ECHO_REQUEST to \"$c\"..."
-    $_ping $c
+local t="$1"
+local _ping="/bin/ping"
+local c=$(parse_url "$t")
+[ "$t" != "$c" ] && echo "Sending ICMP ECHO_REQUEST to \"$c\"..."
+$_ping $c
 }
 
 my_host() {
-    local t="$1"
-    local _host="/usr/bin/host"
-    local c=$(parse_url "$t")
-    [ "$t" != "$c" ] && echo "Performing DNS lookups for \"$c\"..."
-    $_host $c
+local t="$1"
+local _host="/usr/bin/host"
+local c=$(parse_url "$t")
+[ "$t" != "$c" ] && echo "Performing DNS lookups for \"$c\"..."
+$_host $c
 }
 
 my_log() {
@@ -321,7 +313,7 @@ fi
 if [ "$pack_type" == "-tar" ]; then
     #cd $HOME
     pack_name="${pname}-${pack_version}.tar"
-    echo -e "\n$LINE02 creating installation pack:\n\t${dst_dir}/${pack_name}"
+    echo -e "\n$(make_line 5 -)02 creating installation pack:\n\t${dst_dir}/${pack_name}"
     [ -e ${dst_dir}/${pack_name} ] && cat /dev/null > ${dst_dir}/${pack_name}
     while read pack_file
     do
@@ -340,7 +332,7 @@ elif [ "$pack_type" == "-rpm" ]; then
 %_tmppath              ${dst_dir}/rpm/tmp
 
 EOM
-    echo -e "$LINE02 building RPMs"
+    echo -e "$(make_line 5 -)02 building RPMs"
     cp ${YSI}.spec ${dst_dir}/rpm/SPECS/
     tar -zcvf ${dst_dir}/rpm/SOURCES/${pack_name}-$pack_version.tar.gz ${pack_name}-$pack_version
     rpmbuild -ba ${dst_dir}/rpm/SPECS/${YSI}.spec
@@ -349,7 +341,28 @@ EOM
 else
     echo $usage
 fi
-echo -e "\n$LINE02 pack creation complete:\n$(ls -lh ${dst_dir}/${pack_name})\n  LOG: $log_file\n"
+echo -e "\n$(make_line 5 -)02 pack creation complete:\n$(ls -lh ${dst_dir}/${pack_name})\n  LOG: $log_file\n"
+}
+
+make_line() {
+size=$1
+line_string="$2"
+lstring=""
+
+if [ "$size" -lt 1 ]; then
+    echo -e "usage: make_line() $size $line_string"
+    return
+fi
+
+for myseq in $(seq $size)
+do
+    if [ "$line_string" == "" ]; then
+        lstring="${lstring} "
+    else
+        lstring="${lstring}${line_string}"
+    fi
+done
+printf "%s" $lstring
 }
 
 application_lock(){

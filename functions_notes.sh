@@ -5,24 +5,24 @@ notetype=$1
 note=$2
 
 if [ "$notetype" == "-n" ]; then
-    echo -e "\n$LINE21 NOTE $LINE21"
+    echo -e "\n$(make_line 20 =) NOTE $(make_line 20 =)"
     echo -e "\n$note"
-    echo -e "\n$LINE21 NOTE $LINE21\n"
+    echo -e "\n$(make_line 20 =) NOTE $(make_line 20 =)\n"
 elif [ "$notetype" == "-e" ]; then
-    echo -e "\n$LINE20 Error! $LINE20"
+    echo -e "\n$(make_line 20 =) Error! $(make_line 20 =)"
     echo -e "\n$note"
-    echo -e "\n$LINE20 Error! $LINE20\n"
+    echo -e "\n$(make_line 20 =) Error! $(make_line 20 =)\n"
 elif [ "$notetype" == "-w" ]; then
-    echo -e "\n$LINE20 Warning! $LINE20"
+    echo -e "\n$(make_line 20 =) Warning! $(make_line 20 =)"
     echo -e "\n$note"
-    echo -e "\n$LINE20 Warning! $LINE20\n"
+    echo -e "\n$(make_line 20 =) Warning! $(make_line 20 =)\n"
 fi
 }
 
 notes() {
-local opt dir
+local opt notes_dir
 opt=$1
-dir="${HOME}/info/notes"
+notes_dir="${HOME}/info/notes"
 olddir=$(pwd)
 std_lables
 
@@ -43,28 +43,28 @@ EOM
 fi
 
 cd ${HOME}/info/notes
-echo -e "$LINE0\n"
+echo -e "$(make_line 5 =)\n"
 
 if [ "$opt" == "-l" ]; then
     ls
 elif [ "$opt" == "-ll" ]; then
     ls -l | less
 elif [ "$opt" == "-e" ]; then
-    note=$(select_file -all $dir)
+    note=$(select_file -all $notes_dir)
     vi $note
 elif [ "$opt" == "-s" ]; then
-    read -p "$LINE3 search string (single word only) " string
+    read -p "$(make_line 5 .) search string (single word only) " string
     printf "string: '%s'" $string
     grep $string *
 elif [ "$opt" == "-v" ]; then
-    note=$(select_file -pre $dir notes)
+    note=$(select_file -pre $notes_dir notes)
     less $note
 elif [ "$opt" == "-t" ]; then
     cd ${HOME}/info
     tar cvfp ${HOME}/tmp/notes.tar notes
     ls -l ${HOME}/tmp/notes.tar
 elif [ "$opt" == "-c" ]; then
-    cd $dir
+    cd $notes_dir
     rmnotes=$(ls *~)
     echo -e "----> about to remove $rmnotes\n"
     for file in $(echo $rmnotes)
@@ -77,6 +77,6 @@ elif [ "$opt" == "-c" ]; then
     done
 fi
 cd $olddir
-echo -e "\n${LINE2}${LINE2}\n"
+echo -e "\n$(make_line 5 .)$(make_line 5 .)\n"
 }
 
