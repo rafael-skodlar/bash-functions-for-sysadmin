@@ -29,7 +29,7 @@ std_lables
 if [ "$opt" == "" ]; then
     cat << EOM
 
-${LINE0}${LINE0}
+${$(make_line 5=)}${$(make_line 5=)}
     -c    (clean - remove backup files)
     -e    (edit)
     -l    (list)
@@ -37,7 +37,7 @@ ${LINE0}${LINE0}
     -t    (tar all files)
     -v    (view)
     -s    (search; prompts for word)
-${LINE0}${LINE0}
+${$(make_line 5=)}${$(make_line 5=)}
 
 EOM
 fi
