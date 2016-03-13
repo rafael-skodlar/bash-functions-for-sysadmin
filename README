@@ -1,2 +1,42 @@
 function_* files contain bash functions for use in bash scripts.
 They might be used on command line as well.
+
+To use the functions add the following at the top of your scripts:
+Note one functions file is commented out so it's contents is not used
+
+#####
+FUNCTIONS1=${HOME}/bin/functions_sysadmin.sh
+FUNCTIONS2=${HOME}/bin/functions_time.sh
+#FUNCTIONS3=${HOME}/bin/functions_openstack.sh
+FUNCTIONS="$FUNCTIONS1 $FUNCTIONS2"
+
+for funct in $FUNCTIONS
+do
+    if [ ! -e $funct ]; then
+        echo -e "\n\tMissing: $funct\n"
+        exit 1
+    else
+        source $funct
+    fi
+done
+
+#####
+To see what functions are available cut/paste the lines above into bash and run
+myfun
+
+Some functions provide usage like this:
+mytime
+Usage:
+    /bin/bash <mode> <time in seconds or string>
+        -hm                         (HH:MM)
+        -hms                        (HH:MM:SS)
+        -sec                        (Unix seconds now)
+        -date                       (YYYY-MM-DD)
+        -date_time                  (YYYY-MM-DD HH:MM:SS)
+        -i2u 'YYYY-MM-DD HH:MM:SS'  (convert ISO 8601 to Unix seconds)
+        -u2i seconds                (convert Unix seconds to YYYY-MM-DD HH:MM:SS)
+
+mytime -u2i 1400000000
+2014-05-13 09:53:20
+
+

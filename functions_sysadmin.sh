@@ -6,21 +6,12 @@ std_lables() {
 # Standard lables used in scripts
 # Note: parsing in some scripts using this fuction and make_line() depends on the
 # following strings listed in order of priority from top to bottom; quotes excluded
-# "====="
-# "-----"
-# "....."
-# "+++++"
-# "_____"
-# "*****"
-# "|||||"
-# ">>>>>"
-# "<<<<<"
 
-ABORT="_____ Aborting:"
-NOTE="_____ Note:"
-WARN="_____ Warning:"
-MISSING="_____ Missing:"
-ERROR="ERROR:"
+ABORT="Aborting:"
+NOTE="Note:"
+WARN="Warning:"
+MISSING="Missing:"
+ERROR="Error:"
 }
 
 usr_input() {
@@ -123,51 +114,69 @@ $_host $c
 
 my_log() {
 # ===== logging
-log_type=$1
+log_mode=$1
 log_file=$2
 log_entry=$3
 log_time=$(mytime -date_time)
 
-if [ "$log_type" == "-n" ]; then     # normal
+if [ "$log_mode" == "-n" ]; then     # normal
     echo -e "$log_time $log_entry" >> $log_file
-elif [ "$log_type" == "-e" ]; then   # error
+elif [ "$log_mode" == "-e" ]; then   # error
     echo -e "$log_time error: $log_entry" >> $log_file
+elif [ "$log_mode" == "-r" ]; then   # rotate log file
+    if [ -e $log_file ]; then
+        mv $log_file ${log_file}_${log_time}
+    else
+        echo -e "$ERROR no such file $log_file"
+    fi
 fi
+}
+
+my_print() {
+# ===== colorized print on screen
+# incomplete
+colors="red green blue yellow"
+declare -a color_map
+color_map['red']="\e[0;35m"
+color_reset="\e[0m"
+precolor=color_map[$1]
+
+echo -e "${precolor}${myout}${postcolor}"
 }
 
 # ===== misc
-myseq() {
-mode=$1
-seq_first=$2
-seq_incr=$3
-seq_last=$4
-string=$5
-task=$6
-
-if [ "$mode" == "echo" ]; then
-    for seq in $(seq $seq_first $seq_incr $seq_last)
-    do
-        echo "$seq"
-    done
-elif [ "$mode" == "printf" ]; then
-    for seq in $(seq $seq_first $seq_incr $seq_last)
-    do
-        printf "%d " $seq
-    done
-elif [ "$mode" == "_str" ]; then
-    for seq in $(seq $seq_first $seq_incr $seq_last)
-    do
-        printf "%s%d " $string $seq
-    done
-elif [ "$mode" == "str_" ]; then
-    for seq in $(seq $seq_first $seq_incr $seq_last)
-    do
-        printf "%d%s " $seq $string
-    done
-elif [ "$mode" == "-h" -o "$mode" == "" ]; then
-    echo -e "\nFunction use:\n    myseq <mode> <first> <increment> <last> <string>\n\tmode: echo, printf, [_str|str_]\n\tEx.: myseq str_ 11 2 22 my_string\n"
-fi
-}
+# my_seq() {
+# mode=$1
+# seq_first=$2
+# seq_incr=$3
+# seq_last=$4
+# string=$5
+# task=$6
+#
+# if [ "$mode" == "echo" ]; then
+#     for seq in $(seq $seq_first $seq_incr $seq_last)
+#     do
+#         echo "$seq"
+#     done
+# elif [ "$mode" == "printf" ]; then
+#     for seq in $(seq $seq_first $seq_incr $seq_last)
+#     do
+#         printf "%d " $seq
+#     done
+# elif [ "$mode" == "_str" ]; then
+#     for seq in $(seq $seq_first $seq_incr $seq_last)
+#     do
+#         printf "%s%d " $string $seq
+#     done
+# elif [ "$mode" == "str_" ]; then
+#     for seq in $(seq $seq_first $seq_incr $seq_last)
+#     do
+#         printf "%d%s " $seq $string
+#     done
+# elif [ "$mode" == "-h" -o "$mode" == "" ]; then
+#     echo -e "\nFunction use:\n    myseq <mode> <first> <increment> <last> <string>\n\tmode: echo, printf, [_str|str_]\n\n\tEx.: myseq str_ 11 2 22 my_string\n"
+# fi
+# }
 
 sub_process_status() {
 # under construction
@@ -184,8 +193,13 @@ echo "${1}" | bc -l;
 }
 
 myfun() {
-echo -e "\n\t* available functions:\n"
-awk -F\( '/\(\) {/{print $1}' ~/bin/functions_*.sh
+function_files="$(ls ~/bin/functions_*.sh)"
+echo -e "\n\t***** available functions:"
+for funct in $function_files
+do
+    echo -e "\n$funct:"
+    awk -F\( '/\(\) {/{print "    " $1}' $funct
+done
 }
 
 tport() {
@@ -196,40 +210,20 @@ exec 5<>/dev/${proto}/${server}/${port}
 (( $? == 0 )) && exec 5<&-
 }
 
-my_host() {
-local t="$1"
-local _host="/usr/bin/host"
-local c=$(parse_url "$t")
-[ "$t" != "$c" ] && echo "Performing DNS lookups for \"$c\"..."
-$_host $c
-}
-
-my_log() {
-# ===== logging
-log_type=$1
-log_file=$2
-log_entry=$3
-log_time=$(mytime "-date_time0")
-
-# write log file fomat at the beginning of file; future option
-
-if [ "$log_type" == "-n" ]; then     # normal
-    echo -e "$log_time $log_entry" >> $log_file
-elif [ "$log_type" == "-e" ]; then   # error
-    echo -e "$log_time error: $log_entry" >> $log_file
-elif [ "$log_type" == "archive" ]; then   # archive log file
-    [ -e $log_file ] && mv $log_file ${log_file}.$(mytime -date_time1)
-fi
-}
-
 view_file() {
 # view information file
-mode=$1
-myfile=$2
-opt1=$3
+
+if [ $# -lt 2 ]; then
+    echo -e "\nUSAGE: view_file [less|grep ] <file> <grep string>\n"
+    return
+else
+    mode=$1
+    myfile=$2
+    opt1=$3
+fi
 
 if [ ! -e $myfile ]; then
-    echo -e "$MISSING $myfile"
+    echo "$MISSING $myfile"
 fi
 
 if [ "$mode" == "less" ]; then
@@ -294,31 +288,46 @@ fi
 
 mkpack() {
 # create a package for use elsewhere
-usage="Usage example:\npack_utility -tar pack_files_list pack_name pack_version dst_dir"
+# package will install files under $HOME/bin
+# pack files list: full file path relative to $HOME directory; it may contain comments
+
+USAGE="pack_utility -tar <pack files list (absolute path)> <pack name> <pack version> [dst_dir]"
 pack_type=$1
 pack_files_list=$2
 pname=$3
 pack_version=$4
-dst_dir=${5:-${HOME}/tmp}
+dst_dir=${5:-${HOME}/tmp/$pname}
 log_file=${dst_dir}/mkpack_${pname}.log
 
 [ -e $log_file ] && rm $log_file
 
 if [ $# -lt 4 ]; then
-    echo -e $usage
+    echo -e "Usage:\n\t$USAGE"
 fi
 
-[ ! -d $dst_dir ] && mkdir $dst_dir
+if [ ! -d ${dst_dir}/bin ]; then
+    mkdir -p ${dst_dir}/bin
+else
+    rm -f ${dst_dir}/bin/*
+fi
 
 if [ "$pack_type" == "-tar" ]; then
-    #cd $HOME
-    pack_name="${pname}-${pack_version}.tar"
-    echo -e "\n$(make_line 5 -)02 creating installation pack:\n\t${dst_dir}/${pack_name}"
-    [ -e ${dst_dir}/${pack_name} ] && cat /dev/null > ${dst_dir}/${pack_name}
+#    cd
+    pack_name="${dst_dir}/${pname}-${pack_version}.tar"
+    [ -e $pack_name ] && rm $pack_name
+    echo -e "\n----- creating installation pack:\n\t$pack_name"
     while read pack_file
     do
-        tar rvf ${dst_dir}/${pack_name} $pack_file --exclude .svn 2>&1 >> $log_file
+        [ -z "${pack_file%%#*}" ] && continue   # skip commented or empty lines
+        echo -e "cp -p $pack_file ${dst_dir}/bin"  2>&1 >> $log_file
+        cp -p $pack_file ${dst_dir}/bin
+        if [ $? -ne 0 ]; then
+            echo -e "$ERROR while copying $pack_file\n"
+            return
+        fi
     done < $pack_files_list
+    cd $dst_dir
+    tar cvf $pack_name bin 2>&1 >> $log_file
 elif [ "$pack_type" == "-rpm" ]; then
     echo "under construction"
     return
@@ -332,7 +341,7 @@ elif [ "$pack_type" == "-rpm" ]; then
 %_tmppath              ${dst_dir}/rpm/tmp
 
 EOM
-    echo -e "$(make_line 5 -)02 building RPMs"
+    echo -e "----- building RPMs"
     cp ${YSI}.spec ${dst_dir}/rpm/SPECS/
     tar -zcvf ${dst_dir}/rpm/SOURCES/${pack_name}-$pack_version.tar.gz ${pack_name}-$pack_version
     rpmbuild -ba ${dst_dir}/rpm/SPECS/${YSI}.spec
@@ -341,7 +350,7 @@ EOM
 else
     echo $usage
 fi
-echo -e "\n$(make_line 5 -)02 pack creation complete:\n$(ls -lh ${dst_dir}/${pack_name})\n  LOG: $log_file\n"
+echo -e "\n----- pack creation complete:\n$(ls -lh $pack_name)\n  LOG: $log_file\n"
 }
 
 make_line() {
@@ -449,7 +458,7 @@ fi
 less $server_list
 }
 
-isdigit() {
+is_digit() {
 # Tests whether *entire string* is numerical.
 if [ $# -ne 1 ]; then
     echo 1
@@ -459,4 +468,50 @@ case $1 in
   *[!0-9]*|"") echo 1;;
             *) echo 0;;
 esac
+}
+
+debug() {
+# help debugging shell scripts
+# modes: write2file, view, grep_log
+
+LINE=">>>>>"
+USAGE="usage: debug mode <filename> <message>\n\tmodes: write2file, view, grep_log"
+if [ $# -lt 2 ]; then
+    echo -e "$USAGE"
+    return
+else
+    debug_mode=$1
+    debug_file=$2
+    debug_message=$3
+fi
+
+echo -e "\n$LINE DEBUG start\n   mode: $debug_mode\n   file: $debug_file\nmessage: $debug_message"
+if [ "$debug_mode" == "write2file" ]; then
+    echo -e "$debug_message" >> $debug_file
+elif [ "$debug_mode" == "view" ]; then
+    view_file less $debug_file
+elif [ "$debug_mode" == "grep" ]; then
+    grep "$debug_message" $debug_file
+else
+    echo -e "$LINE no such mode: $debug_mode\n$USAGE"
+fi
+echo -e "\n$LINE DEBUG stop\n"
+}
+
+is_ip() {
+# under construction
+local myip=$1
+local mystat=1
+declare -a myipset
+#IFS=. read -a myipset <<< "$myip"
+
+if [[ $myip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    OIFS=$IFS
+    IFS='.'
+    myip=($myip)
+    IFS=$OIFS
+    [[ ${myip[0]} -le 255 && ${myip[1]} -le 255 && ${myip[2]} -le 255 && ${myip[3]} -le 255 ]]
+    stat=$?
+fi
+return $stat
 }
