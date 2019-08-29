@@ -52,6 +52,8 @@ elif [ "$opt" == "-ll" ]; then
 elif [ "$opt" == "-e" ]; then
     note=$(select_file -all $notes_dir)
     vi $note
+elif [ "$opt" == "-m" ]; then
+    ~/bin/notes -m
 elif [ "$opt" == "-s" ]; then
     read -p "$(make_line 5 .) search string (single word only) " string
     printf "string: '%s'" $string

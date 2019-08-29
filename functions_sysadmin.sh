@@ -2,6 +2,8 @@
 # 2012-09-27 Rafael Skodlar; updated functions
 # 2012-10-17 Rafael Skodlar; broke related functions into separate files
 
+functionsSysadminVersion=1.0
+
 std_lables() {
 # Standard lables used in scripts
 # Note: parsing in some scripts using this fuction and make_line() depends on the
@@ -16,29 +18,45 @@ ERROR="Error:"
 
 usr_input() {
 # user input; return an answer or default
-question=$1
-if [ $# -gt 1 ]; then
-    default=$2
-    read -p "$question [$default]? " answer
+# mode '-n' for normal prompt
+# purpose of mode is mainly '-s' (silent) for asking passwords; see man bash for read
+
+inputMode=$1
+question="$2"
+default=""
+
+if [ $# -gt 2 ]; then
+    default=$3
+fi
+
+if [ "$inputMode" == "-n" ]; then
+    if [ "$default" != "" ]; then
+        read -p "$question [$default]? " answer
+    else
+        read -p "$question " answer
+    fi
     if [ "$answer" == "" ]; then
         answer=$default
     fi
-else
-    read -p "$question? " answer
+elif [ "$inputMode" == "-s" ]; then     # silent, no echo for password
+    read -s -p "$question? " answer
 fi
 echo $answer
 }
 
 select_file() {
-# select from all or types of files in directory
+# select from all or from types of files in a directory
 # file names modes:
-# pre (prefix)
-# ext (extension)
+# -pre == prefix
+# -ext == extension
+# -pat == pattern
 
 local mydir
+local mode
+
 mode=$1
 mydir=$2
-file_type=$3
+fileType=$3
 
 if [ $# -lt 2 ]; then
     echo -e "missing or bad parameters\n"
@@ -53,46 +71,20 @@ fi
 cd $mydir
 
 if [ "$mode" == "-pre" ]; then
-    file_list=$(ls ${file_type}*)
+    fileList=$(ls -p ${fileType}* | grep -v '/')
 elif [ "$mode" == "-ext" ]; then
-    file_list=$(ls *${file_type})
+    fileList=$(ls -p *${fileType} | grep -v '/')
+elif [ "$mode" == "-pat" ]; then
+    fileList=$(ls -p *${fileType}* | grep -v '/')
 elif [ "$mode" == "-all" ]; then
-    file_list=$(ls)
+    fileList=$(ls -p | grep -v '/')
 fi
 
-select file in $file_list
+select file in $fileList
 do
     echo $file
     break
 done
-}
-
-# ===== WWW related functions
-wwwh() {
-# check headers from WWW server
-server=$1; port=${2:-80}
-exec 5<> /dev/tcp/$server/$port
-echo -e "HEAD / HTTP/1.0\nHost: ${server}\n\n" >&5
-cat <5
-exec 5<&-
-}
-
-parse_url() {
-url=$1
-pname="${url,,}"
-# remove URL header
-cname="${pname#http://}"
-cname="${pname#https://}"
-cname="${pname#ftp://}"
-cname="${pname#scp://}"
-cname="${pname#sftp://}"
-# remove username and/or username:password part of hostname
-cname="${pname#*:*@}"
-cname="${pname#*@}"
-# remove trailer /somedir/index.html*
-cname=${pname%%/*}
-cname=${pname%%:}
-echo -e "$cname"
 }
 
 # network functions
@@ -104,79 +96,64 @@ local c=$(parse_url "$t")
 $_ping $c
 }
 
-my_host() {
-local t="$1"
-local _host="/usr/bin/host"
-local c=$(parse_url "$t")
-[ "$t" != "$c" ] && echo "Performing DNS lookups for \"$c\"..."
-$_host $c
-}
-
 my_log() {
 # ===== logging
-log_mode=$1
-log_file=$2
-log_entry=$3
-log_time=$(mytime -date_time)
+logMode=$1
+logFile=$2
+logEntry=$3
+logTime=$(mytime -date_time)
 
-if [ "$log_mode" == "-n" ]; then     # normal
-    echo -e "$log_time $log_entry" >> $log_file
-elif [ "$log_mode" == "-e" ]; then   # error
-    echo -e "$log_time error: $log_entry" >> $log_file
-elif [ "$log_mode" == "-r" ]; then   # rotate log file
-    if [ -e $log_file ]; then
-        mv $log_file ${log_file}_${log_time}
+if [ "$logMode" == "-n" ]; then     # normal
+    echo -e "$logTime $logEntry" >> $logFile
+elif [ "$logMode" == "-e" ]; then   # error
+    echo -e "$logTime error: $logEntry" >> $logFile
+elif [ "$logMode" == "-r" ]; then   # rotate log file
+    if [ -e $logFile ]; then
+        mv $logFile ${logFile}_${logTime}
     else
-        echo -e "$ERROR no such file $log_file"
+        echo -e "$ERROR no such file $logFile"
     fi
 fi
 }
 
+my_image() {
+myScript="/tmp/make_image_$(whoami).sh"
+myImage="/tmp/image_$(whoami).png"
+
+cat << EOM > $myScript
+archive=$(awk '/^__imageBlob__/{print NR + 1;exit;0;}' $0)
+tail -n+$archive > $myImage
+display $myImage
+rm $myImage
+exit
+__imageBlob__
+EOM
+}
+
 my_print() {
-# ===== colorized print on screen
-# incomplete
+# ===== adjusted and colorized print on screen
+# modes: left, center, right
+# under construction
+mode=$1
+color=$2
+text=$3
+
+if [ "$mode" == "left" ]; then
+    printf "%s" $text
+elif [ "$mode" == "center" ]; then
+    printf "%*s" $(((${#text}+$COLUMNS)/2)) "$text"
+elif [ "$mode" == "right" ]; then
+    printf "%*s" $($COLUMNS-${#text}) "$text"
+fi
+
 colors="red green blue yellow"
-declare -a color_map
-color_map['red']="\e[0;35m"
+declare -a colorMap
+colorMap['red']="\e[0;35m"
 color_reset="\e[0m"
-precolor=color_map[$1]
+precolor=colorMap[$1]
 
 echo -e "${precolor}${myout}${postcolor}"
 }
-
-# ===== misc
-# my_seq() {
-# mode=$1
-# seq_first=$2
-# seq_incr=$3
-# seq_last=$4
-# string=$5
-# task=$6
-#
-# if [ "$mode" == "echo" ]; then
-#     for seq in $(seq $seq_first $seq_incr $seq_last)
-#     do
-#         echo "$seq"
-#     done
-# elif [ "$mode" == "printf" ]; then
-#     for seq in $(seq $seq_first $seq_incr $seq_last)
-#     do
-#         printf "%d " $seq
-#     done
-# elif [ "$mode" == "_str" ]; then
-#     for seq in $(seq $seq_first $seq_incr $seq_last)
-#     do
-#         printf "%s%d " $string $seq
-#     done
-# elif [ "$mode" == "str_" ]; then
-#     for seq in $(seq $seq_first $seq_incr $seq_last)
-#     do
-#         printf "%d%s " $seq $string
-#     done
-# elif [ "$mode" == "-h" -o "$mode" == "" ]; then
-#     echo -e "\nFunction use:\n    myseq <mode> <first> <increment> <last> <string>\n\tmode: echo, printf, [_str|str_]\n\n\tEx.: myseq str_ 11 2 22 my_string\n"
-# fi
-# }
 
 sub_process_status() {
 # under construction
@@ -202,9 +179,11 @@ do
 done
 }
 
-tport() {
+check_port() {
 # check if port is open
 server=$(usr_input server); port=$(usr_input port); proto=$(usr_input protocol tcp)
+port=$(usr_input port)
+proto=$(usr_input protocol tcp)
 echo
 exec 5<>/dev/${proto}/${server}/${port}
 (( $? == 0 )) && exec 5<&-
@@ -229,7 +208,9 @@ fi
 if [ "$mode" == "less" ]; then
     less $myfile
 elif [ "$mode" == "grep" ]; then
-    grep $opt1 $myfile
+    grep $opt1 $myfile | less
+elif [ "$mode" == "hex" ]; then
+    hexdump -C $myfile | less
 fi
 }
 
@@ -254,29 +235,29 @@ fi
 
 mkseq() {
 mode=$1
-seq_first=$2
-seq_incr=$3
-seq_last=$4
+seqFirst=$2
+seqIncr=$3
+seqLast=$4
 string=$5
 task=$6
 
 if [ "$mode" == "num" ]; then
-    for seq in $(seq $seq_first $seq_incr $seq_last)
+    for seq in $(seq $seqFirst $seqIncr $seqLast)
     do
         echo "$seq"
     done
 elif [ "$mode" == "printf" ]; then
-    for seq in $(seq $seq_first $seq_incr $seq_last)
+    for seq in $(seq $seqFirst $seqIncr $seqLast)
     do
         printf "%d " $seq
     done
 elif [ "$mode" == "_str" ]; then
-    for seq in $(seq $seq_first $seq_incr $seq_last)
+    for seq in $(seq $seqFirst $seqIncr $seqLast)
     do
         printf "%s%d " $string $seq
     done
 elif [ "$mode" == "str_" ]; then
-    for seq in $(seq $seq_first $seq_incr $seq_last)
+    for seq in $(seq $seqFirst $seqIncr $seqLast)
     do
         printf "%d%s " $seq $string
     done
@@ -286,23 +267,24 @@ intf, [_str|str_]\n\tEx.: myseq str_ 11 2 22 my_string\nmodes: num printf _str s
 fi
 }
 
-mkpack() {
+make_pack() {
 # create a package for use elsewhere
 # package will install files under $HOME/bin
 # pack files list: full file path relative to $HOME directory; it may contain comments
 
 USAGE="pack_utility -tar <pack files list (absolute path)> <pack name> <pack version> [dst_dir]"
-pack_type=$1
-pack_files_list=$2
+packType=$1
+packFilesList=$2
 pname=$3
 pack_version=$4
 dst_dir=${5:-${HOME}/tmp/$pname}
-log_file=${dst_dir}/mkpack_${pname}.log
+logFile=${dst_dir}/mkpack_${pname}.log
 
-[ -e $log_file ] && rm $log_file
+[ -e $logFile ] && rm $logFile
 
 if [ $# -lt 4 ]; then
     echo -e "Usage:\n\t$USAGE"
+    return
 fi
 
 if [ ! -d ${dst_dir}/bin ]; then
@@ -311,64 +293,50 @@ else
     rm -f ${dst_dir}/bin/*
 fi
 
-if [ "$pack_type" == "-tar" ]; then
-#    cd
+if [ "$packType" == "-tar" ]; then
     pack_name="${dst_dir}/${pname}-${pack_version}.tar"
     [ -e $pack_name ] && rm $pack_name
     echo -e "\n----- creating installation pack:\n\t$pack_name"
     while read pack_file
     do
         [ -z "${pack_file%%#*}" ] && continue   # skip commented or empty lines
-        echo -e "cp -p $pack_file ${dst_dir}/bin"  2>&1 >> $log_file
-        cp -p $pack_file ${dst_dir}/bin
+        echo -e "..... cp -rp $pack_file ${dst_dir}/bin" | tee $logFile
+        cp -rp $pack_file ${dst_dir}/bin
         if [ $? -ne 0 ]; then
             echo -e "$ERROR while copying $pack_file\n"
-            return
+            #return 1
         fi
-    done < $pack_files_list
+    done < $packFilesList
+    if [ "$FUNCTIONS" != "" ]; then     # FUNCTIONS is defined in the application
+        for funct in $FUNCTIONS
+        do
+            cp $funct ${dst_dir}/bin
+        done
+    fi
     cd $dst_dir
-    tar cvf $pack_name bin 2>&1 >> $log_file
-elif [ "$pack_type" == "-rpm" ]; then
-    echo "under construction"
-    return
-    cd $dst_dir
-    for mydir in "rpm/BUILD rpm/RPMS rpm/RPMS/i386 rpm/RPMS/i686 rpm/RPMS/noarch rpm/SOURCES rpm/SPECS rpm/SRPMS rpm/tmp"
-    do
-        [ ! -d $dir ] && mkdir $mydir
-    done
-    cat << EOM > ~/.rpmmacros
-%_topdir               ${dst_dir}/rpm
-%_tmppath              ${dst_dir}/rpm/tmp
-
-EOM
-    echo -e "----- building RPMs"
-    cp ${YSI}.spec ${dst_dir}/rpm/SPECS/
-    tar -zcvf ${dst_dir}/rpm/SOURCES/${pack_name}-$pack_version.tar.gz ${pack_name}-$pack_version
-    rpmbuild -ba ${dst_dir}/rpm/SPECS/${YSI}.spec
-
-    rpm --addsign ${pack_name}-$pack_version
+    tar cvf $pack_name bin 2>&1 >> $logFile
 else
     echo $usage
 fi
-echo -e "\n----- pack creation complete:\n$(ls -lh $pack_name)\n  LOG: $log_file\n"
+echo -e "\n----- pack creation complete:\n$(ls -lh $pack_name)\n  LOG: $logFile\n"
 }
 
 make_line() {
-size=$1
-line_string="$2"
-lstring=""
+local size=$1
+local lineString="$2"
+local lstring=""
 
 if [ "$size" -lt 1 ]; then
-    echo -e "usage: make_line() $size $line_string"
+    echo -e "usage: make_line $size $lineString"
     return
 fi
 
 for myseq in $(seq $size)
 do
-    if [ "$line_string" == "" ]; then
+    if [ "$lineString" == "" ]; then
         lstring="${lstring} "
     else
-        lstring="${lstring}${line_string}"
+        lstring="${lstring}${lineString}"
     fi
 done
 printf "%s" $lstring
@@ -379,10 +347,10 @@ application_lock(){
 # if locked, watch for number of seconds and return to caller
 
 mode=$1
-lock_file=$2
+lockFile=$2
 
 if [ $mode == "lock" ]; then
-    echo "$$ $(date '+%F %T') $(whoami)" > $lock_file
+    echo "$$ $(date '+%F %T') $(whoami)" > $lockFile
 elif [ $mode == "check" ]; then
     wait_time=$3
     count_limit=3
@@ -401,7 +369,7 @@ elif [ $mode == "check" ]; then
         let lcount=lcount+1
     done
 elif [ $mode == "unlock" ]; then
-    rm $lock_file
+    rm $lockFile
 fi
 }
 
@@ -424,7 +392,7 @@ do
 done < $conf_file
 }
 
-replace_var() {
+string_replace() {
 # replace a string in a file with another string
 filename=$1
 string1=$2
@@ -436,26 +404,6 @@ sed "s/$string1/$string2/g" $filename > $filename.$$
 if [ -e $filename ]; then
     echo -e "$ERROR failed to parse from $filename to $filename.$$ and rename it to it's original."
 fi
-}
-
-list_servers() {
-env=$1
-myworkdir=$2
-
-if [ "$env" == "" ]; then
-    env=$(usr_input "environment " sqc)
-fi
-cd ${myworkdir}/${env}
-server_type=$(usr_input "server type")
-string=$(usr_input "string")
-server_list=${myworkdir}/${env}/hosts.${env}.${server_type}
-
-if [ "$string" != "" ]; then
-    server.pl -q -env $env -ser $server_type -str $string -ac yes > $server_list
-else
-    server.pl -q -env $env -ser $server_type -ac yes > $server_list
-fi
-less $server_list
 }
 
 is_digit() {
@@ -498,20 +446,21 @@ fi
 echo -e "\n$LINE DEBUG stop\n"
 }
 
-is_ip() {
-# under construction
-local myip=$1
-local mystat=1
-declare -a myipset
-#IFS=. read -a myipset <<< "$myip"
+is_ipv4() {
+myip=$1
 
-if [[ $myip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-    OIFS=$IFS
-    IFS='.'
-    myip=($myip)
-    IFS=$OIFS
-    [[ ${myip[0]} -le 255 && ${myip[1]} -le 255 && ${myip[2]} -le 255 && ${myip[3]} -le 255 ]]
-    stat=$?
+if [[ $myip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+   IFS=.
+    set $myip
+    for quad in 1 2 3 4; do
+        if eval [ \$$quad -gt 255 ]; then
+            echo "bad [$quad]"
+            return 1
+        fi
+    done
+    # yes, it's IP
+    echo "yes"
+else
+    echo "no"
 fi
-return $stat
 }

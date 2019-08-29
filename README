@@ -1,5 +1,5 @@
 function_* files contain bash functions for use in bash scripts.
-They might be used on command line as well.
+They might be used on the command line if they are sourced first.
 
 To use the functions add the following at the top of your scripts:
 Note one functions file is commented out so it's contents is not used
@@ -23,6 +23,8 @@ done
 #####
 To see what functions are available cut/paste the lines above into bash and run
 myfun
+
+expected functions files location: ~/bin
 
 Some functions provide usage like this:
 mytime

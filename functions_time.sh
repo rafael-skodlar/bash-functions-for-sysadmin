@@ -32,7 +32,9 @@ Usage:
         -hms                        (HH:MM:SS)
         -sec                        (Unix seconds now)
         -date                       (YYYY-MM-DD)
-        -date_time                  (YYYY-MM-DD HH:MM:SS)
+        -date time                  (YYYY-MM-DD HH:MM:SS)
+        -date_time                  (YYYY-MM-DD_HH:MM:SS)
+        -log_time                   (YYYYMMDD_HHMMSS)
         -i2u 'YYYY-MM-DD HH:MM:SS'  (convert ISO 8601 to Unix seconds)
         -u2i seconds                (convert Unix seconds to YYYY-MM-DD HH:MM:SS)
 
